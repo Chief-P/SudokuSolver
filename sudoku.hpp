@@ -20,7 +20,7 @@ public:
     const int boxRow;
     vector2d grid;
 
-    Sudoku(int column, int row, int boxColumn, int boxRow)
+    Sudoku(const int column, const int row, const int boxColumn, const int boxRow)
       : isSolved(false), zeroNum(0),
 		column(column), row(row),
         boxColumn(boxColumn), boxRow(boxRow),
@@ -37,12 +37,12 @@ public:
             cout << "No solution!" << endl;
     }
 
-	bool isEmpty(int x, int y);
-    bool isValid(int x, int y, int n);
-    bool isUsedInColumn(int x, int n);
-    bool isUsedInRow(int y, int n);
-    bool isUsedInBox(int x, int y, int n);
-    void dfs(int x, int y);
+	bool isEmpty(const int x, const int y);
+    bool isValid(const int x, const int y, const int n);
+    bool isUsedInColumn(const int x, const int n);
+    bool isUsedInRow(const int y, const int n);
+    bool isUsedInBox(const int x, const int y, const int n);
+    void dfs(const int x, const int y);
     void read();
     void print();
 

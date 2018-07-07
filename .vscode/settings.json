@@ -6,6 +6,7 @@
         "ostream": "cpp",
         "iosfwd": "cpp",
         "xiosbase": "cpp",
-        "utility": "cpp"
+        "utility": "cpp",
+        "xlocale": "cpp"
     }
 }

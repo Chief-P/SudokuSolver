@@ -48,8 +48,12 @@ int main(int argc, char const *argv[])
             }
         }
 
-    if (dlx.Solve()) // Maybe dead circulation
+    std::cout << "ok" << std::endl;
+    if (dlx.Solve())
+    {
+        std::cout << "err print" << std::endl;
         dlx.PrintAnswer();
+    }
     else
         std::cout << "Error" << std::endl;
     

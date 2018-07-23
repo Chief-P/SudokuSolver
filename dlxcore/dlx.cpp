@@ -84,17 +84,22 @@ void DancingLinks::UndeleteNode(const pos node)
 void DancingLinks::AddToAnswer(const pos node)
 {
     ans.push_back(node->row);
+    DeleteNode(node->colHead);
     for (pos i = node; i->right != i; i = i->right)
-        for (pos j = i; j->down != j; j = j->down)
+        for (pos j = i; j->row != -1 && j->down != j; j = j->down)
             for (pos k = j; k->right != k; k = k->right)
+            {
+                std::cout << i->row << " " << j->row << " " << k->row << std::endl;
                 DeleteNode(k);
+            }
 }
 
 void DancingLinks::RemoveFromAnswer(const pos node)
 {
     ans.pop_back();
+    UndeleteNode(node->colHead);
     for (pos i = node; i->right != node; i = i->right)
-        for (pos j = i; j->down != i; j = j->down)
+        for (pos j = i; j->row != -1 && j->down != i; j = j->down)
             for (pos k = j; k->right != j; k = k->right)
                 UndeleteNode(k);
 }
@@ -107,10 +112,14 @@ bool DancingLinks::Solve()
     pos node = head->right->down;
     while (node != head->right)
     {
+        std::cout << "before add" << std::endl;
         AddToAnswer(node);
+        std::cout << "after add" << std::endl;
         if (Solve())
             return true;
+        std::cout << "before rem" << std::endl;    
         RemoveFromAnswer(node);
+        std::cout << "after rem" << std::endl;
         node = node->down;
     }
 

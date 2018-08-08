@@ -1,5 +1,22 @@
 #include "sudoku.hpp"
 
+Sudoku::Sudoku(const int column, const int row, const int boxColumn, const int boxRow)
+  : isSolved(false), zeroNum(0),
+	column(column), row(row),
+    boxColumn(boxColumn), boxRow(boxRow),
+    boxPerColumn(column / boxColumn), boxPerRow(row / boxRow),
+    grid(row, vector<int>(column))
+{
+    if (row != column || row != boxColumn * boxRow)
+        cout << "Wrong input!" << endl;
+}
+
+Sudoku::~Sudoku()
+{
+    if (!isSolved)
+        cout << "No solution!" << endl;
+}
+
 void Sudoku::read()
 {
     for (int i = 0; i < row; ++i)
@@ -108,24 +125,4 @@ void Sudoku::dfs(const int x, const int y) // Brute force
             }
         }
     }
-}
-
-int main()
-{
-    // Read sudoku parameter
-    int column, row;
-    int boxColumn, boxRow;
-    cin >> column >> row;
-    cin >> boxColumn >> boxRow;
-
-    // Initialize sudoku
-    Sudoku sdk(column, row, boxColumn, boxRow);
-
-    // Read cell
-    sdk.read();
-
-    // Solve it
-    sdk.dfs(0, 0);
-
-    return 0;
 }

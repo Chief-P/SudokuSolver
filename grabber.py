@@ -2,6 +2,7 @@
 Sudoku Grabber
 Datas are stored in ./data directory as a naive solution
 TODO: Modulize the core with SWIG to optimize this
+      Optimize the naive algorithm
 '''
 
 
@@ -91,7 +92,7 @@ def detect_lines(blob):
 
 
 # Detect if deg is in the range regradless of the period
-def inrange(deg, tar, ld=10, ud=10):
+def inrange(deg, tar, ld=np.pi*10/180, ud=np.pi*10/180):
     if  tar - deg > 0:
         while deg > tar + ud:
             deg -= np.pi * 2
@@ -105,21 +106,29 @@ def inrange(deg, tar, ld=10, ud=10):
         return False
 
 
-def merge_lines(lines, shape):
+# Find two points on the line in normal form
+def find_two_pts(line, shape):
     h, w = shape
+    rho, theta = line
+    pt1, pt2 = (0, 0), (0, 0) # (x, y) format
+    if inrange(theta, np.pi * 90 / 180, np.pi * 45 / 180, np.pi * 45 / 180):
+        pt1 = (0, rho / np.sin(theta))
+        pt2 = (w, rho / np.sin(theta) - w / np.tan(theta))
+    else:
+        pt1 = (rho / np.cos(theta), 0)
+        pt2 = (rho / np.cos(theta) - h * np.tan(theta), h)
+
+    return pt1, pt2
+
+
+def merge_lines(lines, shape):
     for line in lines:
         rho, theta = line[0] # unwrap
         if (rho, theta) == (0, -100):
             continue
 
         # Find two points, assume a good position
-        pt1, pt2 = (0, 0), (0, 0) # (x, y) format
-        if inrange(theta, np.pi * 90 / 180, 45, 45):
-            pt1 = (0, rho / np.sin(theta))
-            pt2 = (w, rho / np.sin(theta) - w / np.tan(theta))
-        else:
-            pt1 = (rho / np.cos(theta), 0)
-            pt2 = (rho / np.cos(theta) - h * np.tan(theta), h)
+        pt1, pt2 = find_two_pts((rho, theta), shape)
         
         for cur in lines:
             cur_rho, cur_theta = cur[0]
@@ -127,14 +136,8 @@ def merge_lines(lines, shape):
                 continue
             if abs(abs(cur_rho) - abs(rho)) < 20 and inrange(theta, cur_theta):
                 # Find two points again
-                cur_pt1, cur_pt2 = (0, 0), (0, 0)
-                if inrange(cur_theta, np.pi * 90 / 180, 45, 45):
-                    cur_pt1 = (0, cur_rho / np.sin(cur_theta))
-                    cur_pt2 = (w, cur_rho / np.sin(cur_theta) - w / np.tan(cur_theta))
-                else:
-                    cur_pt1 = (cur_rho / np.cos(cur_theta), 0)
-                    cur_pt2 = (cur_rho / np.cos(cur_theta) - h * np.tan(cur_theta), h)
-                
+                cur_pt1, cur_pt2 = find_two_pts((cur_rho, cur_theta), shape)
+
                 # Fuse lines
                 x1, y1 = cur_pt1
                 x2, y2 = cur_pt2
@@ -147,11 +150,27 @@ def merge_lines(lines, shape):
     return lines
 
 
-def find_intersections(l1, l2):
-    pass
+def find_intersection(l1, l2, shape):
+    pt11, pt12 = find_two_pts(l1, shape)
+    pt21, pt22 = find_two_pts(l2, shape)
+    A1 = pt12[1] - pt11[1]
+    B1 = pt11[0] - pt12[0]
+    C1 = A1 * pt11[0] + B1 * pt11[1]
+    A2 = pt22[1] - pt21[1]
+    B2 = pt21[0] - pt22[0]
+    C2 = A2 * pt21[0] + B1 * pt21[1]
+    det = A1 * B2 - B1 * A2
+
+    return ((B2 * C1 - B1 * C2) / det, (A1 * C2 - A2 * C1) / det)
 
 
-def find_edges(lines):
+# Calculate Euclidean distance between pt1 and pt2
+def dist(pt1, pt2):
+    print(pt1, pt2)
+    return int(np.sqrt((pt1[0] - pt2[0])**2 + (pt1[1] - pt2[1])**2))
+
+
+def undistort(lines, img):
     inf = 100000
     top_edge, bottem_edge, left_edge, right_edge = (inf, 0), (-inf, 0), (inf, 0), (-inf, 0)
 
@@ -164,29 +183,37 @@ def find_edges(lines):
         # y_intercept = rho / np.sin(theta)
         # Vertical lines
         if  inrange(theta, np.pi * 90 / 180):
-            if rho < top_edge[0]:
+            if abs(rho) < top_edge[0]:
                 top_edge = (rho, theta)
-            elif rho > bottem_edge[0]:
+            elif abs(rho) > bottem_edge[0]:
                 bottem_edge = (rho, theta)
         # Horizontal lines
         elif inrange(theta, 0) or inrange(theta, np.pi):
-            if rho < left_edge[0]:
+            if abs(rho) < left_edge[0]:
                 left_edge = (rho, theta)
-            elif rho > right_edge[0]:
+            elif abs(rho) > right_edge[0]:
                 right_edge = (rho, theta)
     
     # Find intersections
-    tl = find_intersections(top_edge, left_edge)
-    tr = find_intersections(top_edge, right_edge)
-    bl = find_intersections(bottem_edge, left_edge)
-    br = find_intersections(bottem_edge, right_edge)
+    shape = img.shape
+    tl = find_intersection(top_edge, left_edge, shape)
+    tr = find_intersection(top_edge, right_edge, shape)
+    bl = find_intersection(bottem_edge, left_edge, shape)
+    br = find_intersection(bottem_edge, right_edge, shape)
 
+    # Correct perspective
+    max_len = max(dist(tl, tr), dist(tl, bl), dist(br, bl), dist(br, tr))
+    src_pts = np.float32([list(tl), list(tr), list(bl), list(br)])
+    dst_pts = np.float32([[0, 0],[max_len - 1, 0],[0, max_len - 1],[max_len - 1, max_len - 1]])
+    M = cv.getPerspectiveTransform(src_pts, dst_pts)
+    undistorted = cv.warpPerspective(img, M, (max_len, max_len))
+
+    return undistorted
 
 
 if __name__ == "__main__":
     # Read the image
     img = cv.imread("./pic/sudoku.jpg", 0) # gray scale mode
-    # mask = cv.normalize(img, None, 0, 255, cv.NORM_MINMAX, cv.CV_8UC1)
 
     mask_inv = preprocess(img)
     # cv.imwrite("./pic/mask_inv.jpg", mask_inv)
@@ -195,4 +222,5 @@ if __name__ == "__main__":
     # cv.imwrite("./pic/biggest_blob.jpg", biggest_blob)
 
     lines = merge_lines(detect_lines(biggest_blob), biggest_blob.shape[:2])
-    edges = find_edges(lines)
+    undistorted_img = undistort(lines, img)
+    cv.imwrite("./pic/undistorted_img.jpg", undistorted_img)

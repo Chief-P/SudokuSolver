@@ -26,7 +26,7 @@ def preprocess(img):
 def detect_blobs(mask_inv):
     h, w = mask_inv.shape[:2]
     max_area = -1
-    max_pt = (-1, -1)
+    # max_pt = (-1, -1)
     ffill_mask = np.zeros((h+2, w+2), np.uint8)
 
     # Mark blobs with gray
@@ -92,7 +92,11 @@ def detect_lines(blob):
 
 
 # Detect if deg is in the range regradless of the period
+# ld, ud <= pi
 def inrange(deg, tar, ld=np.pi*10/180, ud=np.pi*10/180):
+    if ld < 0 or ud < 0 or ld > np.pi or ud > np.pi:
+        raise ValueError('inrange-Boundary Error')
+    
     if  tar - deg > 0:
         while deg > tar + ud:
             deg -= np.pi * 2
@@ -110,7 +114,7 @@ def inrange(deg, tar, ld=np.pi*10/180, ud=np.pi*10/180):
 def find_two_pts(line, shape):
     h, w = shape
     rho, theta = line
-    pt1, pt2 = (0, 0), (0, 0) # (x, y) format
+    # pt1, pt2 = (0, 0), (0, 0) # (x, y) format
     if inrange(theta, np.pi * 90 / 180, np.pi * 45 / 180, np.pi * 45 / 180):
         pt1 = (0, rho / np.sin(theta))
         pt2 = (w, rho / np.sin(theta) - w / np.tan(theta))
@@ -166,13 +170,12 @@ def find_intersection(l1, l2, shape):
 
 # Calculate Euclidean distance between pt1 and pt2
 def dist(pt1, pt2):
-    print(pt1, pt2)
     return int(np.sqrt((pt1[0] - pt2[0])**2 + (pt1[1] - pt2[1])**2))
 
 
 def undistort(lines, img):
-    inf = 100000
-    top_edge, bottem_edge, left_edge, right_edge = (inf, 0), (-inf, 0), (inf, 0), (-inf, 0)
+    inf = 1e6
+    top_edge, bottem_edge, left_edge, right_edge = (inf, 0), (0, 0), (inf, 0), (0, 0)
 
     # Find edges
     for line in lines:
@@ -183,15 +186,15 @@ def undistort(lines, img):
         # y_intercept = rho / np.sin(theta)
         # Vertical lines
         if  inrange(theta, np.pi * 90 / 180):
-            if abs(rho) < top_edge[0]:
+            if abs(rho) < abs(top_edge[0]):
                 top_edge = (rho, theta)
-            elif abs(rho) > bottem_edge[0]:
+            if abs(rho) > abs(bottem_edge[0]):
                 bottem_edge = (rho, theta)
         # Horizontal lines
         elif inrange(theta, 0) or inrange(theta, np.pi):
-            if abs(rho) < left_edge[0]:
+            if abs(rho) < abs(left_edge[0]):
                 left_edge = (rho, theta)
-            elif abs(rho) > right_edge[0]:
+            if abs(rho) > abs(right_edge[0]):
                 right_edge = (rho, theta)
     
     # Find intersections
@@ -204,7 +207,7 @@ def undistort(lines, img):
     # Correct perspective
     max_len = max(dist(tl, tr), dist(tl, bl), dist(br, bl), dist(br, tr))
     src_pts = np.float32([list(tl), list(tr), list(bl), list(br)])
-    dst_pts = np.float32([[0, 0],[max_len - 1, 0],[0, max_len - 1],[max_len - 1, max_len - 1]])
+    dst_pts = np.float32([[0, 0], [max_len, 0], [0, max_len], [max_len, max_len]]) # max_len - 1
     M = cv.getPerspectiveTransform(src_pts, dst_pts)
     undistorted = cv.warpPerspective(img, M, (max_len, max_len))
 
@@ -223,4 +226,4 @@ if __name__ == "__main__":
 
     lines = merge_lines(detect_lines(biggest_blob), biggest_blob.shape[:2])
     undistorted_img = undistort(lines, img)
-    cv.imwrite("./pic/undistorted_img.jpg", undistorted_img)
+    # cv.imwrite("./pic/undistorted_img.jpg", undistorted_img)

@@ -1,0 +1,2 @@
+class DigitRecognizer(object):
+    pass
